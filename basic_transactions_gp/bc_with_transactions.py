@@ -43,6 +43,22 @@ class Blockchain(object):
         # Return the new block
         return block
 
+    def new_transaction(self, sender, recipient, amount):
+        """
+        :param sender: <str> Address of the Recipient
+        :param recipient: <str> Address of the Recipient
+        :param amount: <int> Amount
+        :return: <int> The index of the `block` that will hold this transaction
+        """
+        transaction = {
+            'sender': sender,
+            'recipient': recipient,
+            'amount': amount,
+        }
+        self.current_transactions.append(transaction)
+
+        return self.last_block['index'] + 1
+
     def hash(self, block):
         """
         Creates a SHA-256 hash of a Block
@@ -110,31 +126,8 @@ blockchain = Blockchain()
 @app.route('/mine', methods=['POST'])
 def mine():
     data = request.get_json()
+    response = {}
 
-    ####  class notes ######
-    '''
-    required = ['proof', 'id']
-    if not all(k in values for k in required):
-        response ={'message: 'Missing values'}
-        return jsonify(response), 400
-    submitted_proof = values['proof']
-    block_string = json.dumps(blockchain.last_block, sort_keys=True)
-    if blockchain.valid_proof(block_string, submitted_proof):
-        previous_hash = blockchain.hash(blockchain.last_block)
-        new_block = blockchain.new_block(submitted_proof, previous_hash)
-    response = {
-        'new_block:block
-    }
-    return jsonify(response),200
-    else:
-        response={
-            'message':'Proof was invalid or late'
-
-        }
-        return jsonify(response),200
-
-
-    '''
     # Check that 'proof' and 'id' are in request
     if not data.get('proof') or not data.get('id'):
         response = {
@@ -150,22 +143,24 @@ def mine():
     if is_valid:
         # Forge the new Block by adding it to the chain with the proof
         previous_hash = blockchain.hash(blockchain.last_block)
+
+        block_index = blockchain.new_transaction(0, data['id'], 1)
+
         new_block = blockchain.new_block(data['proof'], previous_hash)
 
         response = {
             # Send a JSON response with the new block
             "block": new_block,
-            "message": "New Block Forged"
+            "message": "New Block Forged",
+            "reward": f"Reward paid in block {block_index}"
         }
-
-        return jsonify(response), 200
 
     else:
         response = {
             "message": "Mine Failed"
         }
 
-        return jsonify(response), 200
+    return jsonify(response), 200
 
 
 @app.route('/chain', methods=['GET'])
@@ -182,6 +177,28 @@ def last_block():
     response = {
         'last_block': blockchain.last_block
     }
+    return jsonify(response), 200
+
+
+@app.route('/transaction/new', methods=['POST'])
+def receive_new_transaction():
+    data = request.get_json()
+
+    required = ['sender', 'recipient', 'amount']
+    if not all(k in data for k in required):
+        response = {
+            "message": "Bad request: must provide sender, recipient, and amount",
+        }
+
+        return jsonify(response), 400
+
+    block_index = blockchain.new_transaction(
+        data['sender'], data['recipient'], data['amount'])
+
+    response = {
+        "message": f"Transaction Success - included in block {block_index}"
+    }
+
     return jsonify(response), 200
 
 
